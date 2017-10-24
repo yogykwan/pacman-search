@@ -35,6 +35,7 @@ import util
 import time
 import search
 import searchAgents
+import itertools
 
 class GoWestAgent(Agent):
   "An agent that goes West until it can't."
@@ -276,17 +277,13 @@ class CornersProblem(search.SearchProblem):
         print 'Warning: no food in corner ' + str(corner)
     self._expanded = 0 # Number of search nodes expanded
     
-    "*** YOUR CODE HERE ***"
-    
   def getStartState(self):
     "Returns the start state (in your state space, not the full Pacman state space)"
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    return (self.startingPosition, 0)
     
   def isGoalState(self, state):
     "Returns whether this search state is a goal state of the problem"
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    return state[1] == (1 << len(self.corners)) - 1
        
   def getSuccessors(self, state):
     """
@@ -299,7 +296,7 @@ class CornersProblem(search.SearchProblem):
      required to get there, and 'stepCost' is the incremental 
      cost of expanding to that successor
     """
-    
+
     successors = []
     for action in [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]:
       # Add a successor state to the successor list if the action is legal
@@ -308,9 +305,18 @@ class CornersProblem(search.SearchProblem):
       #   dx, dy = Actions.directionToVector(action)
       #   nextx, nexty = int(x + dx), int(y + dy)
       #   hitsWall = self.walls[nextx][nexty]
-      
-      "*** YOUR CODE HERE ***"
-      
+      x, y = state[0]
+      dx, dy = Actions.directionToVector(action)
+      nextx, nexty = int(x + dx), int(y + dy)
+      if not self.walls[nextx][nexty]:
+        visitBits = state[1]
+        for index, corner in enumerate(self.corners):
+          if (nextx, nexty) == corner:
+            visitBits |= 1 << index
+            break
+        nextState = ((nextx, nexty), visitBits)
+        successors.append((nextState, action, 1))
+
     self._expanded += 1
     return successors
 
@@ -341,11 +347,20 @@ def cornersHeuristic(state, problem):
   on the shortest path from the state to a goal of the problem; i.e.
   it should be admissible (as well as consistent).
   """
-  corners = problem.corners # These are the corner coordinates
-  walls = problem.walls # These are the walls of the maze, as a Grid (game.py)
-  
-  "*** YOUR CODE HERE ***"
-  return 0 # Default to trivial solution
+  corners = problem.corners  # These are the corner coordinates
+  unvisitedCorners = []
+  for index, corner in enumerate(corners):
+    if state[1] >> index & 1:
+      unvisitedCorners.append(corner)
+  score = 0
+  position = state[0]
+  for _ in range(len(unvisitedCorners)):
+    stepScore, corner = min(
+      ((abs(position[0] - corner[0]) + abs(position[1] - corner[1])), corner) for corner in unvisitedCorners)
+    score += stepScore
+    unvisitedCorners.remove(corner)
+    position = corner
+  return score
 
 class AStarCornersAgent(SearchAgent):
   "A SearchAgent for FoodSearchProblem using A* and your foodHeuristic"
